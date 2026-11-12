@@ -1,0 +1,207 @@
+[
+  {
+    "code": "1101",
+    "name": "Kas",
+    "group_name": "Kas"
+  },
+  {
+    "code": "1102",
+    "name": "Bank utama",
+    "group_name": "Kas"
+  },
+  {
+    "code": "1103",
+    "name": "Bank kedua / dompet digital",
+    "group_name": "Kas"
+  },
+  {
+    "code": "1201",
+    "name": "Piutang usaha",
+    "group_name": "Piutang"
+  },
+  {
+    "code": "1202",
+    "name": "Piutang lain",
+    "group_name": "Piutang lain"
+  },
+  {
+    "code": "1301",
+    "name": "Persediaan barang",
+    "group_name": "Persediaan"
+  },
+  {
+    "code": "1401",
+    "name": "Biaya dibayar di muka",
+    "group_name": "Prabayar"
+  },
+  {
+    "code": "1501",
+    "name": "Uang muka pemasok",
+    "group_name": "Uang muka"
+  },
+  {
+    "code": "1601",
+    "name": "Pajak dibayar di muka",
+    "group_name": "Pajak aset"
+  },
+  {
+    "code": "1701",
+    "name": "Peralatan / komputer",
+    "group_name": "Aset tetap"
+  },
+  {
+    "code": "1702",
+    "name": "Kendaraan / aset tetap lain",
+    "group_name": "Aset tetap"
+  },
+  {
+    "code": "1791",
+    "name": "Akumulasi penyusutan",
+    "group_name": "Akumulasi"
+  },
+  {
+    "code": "2101",
+    "name": "Utang usaha",
+    "group_name": "Utang usaha"
+  },
+  {
+    "code": "2102",
+    "name": "Utang biaya",
+    "group_name": "Utang biaya"
+  },
+  {
+    "code": "2103",
+    "name": "Utang pajak",
+    "group_name": "Utang pajak"
+  },
+  {
+    "code": "2104",
+    "name": "Uang muka pelanggan",
+    "group_name": "DP pelanggan"
+  },
+  {
+    "code": "2201",
+    "name": "Pinjaman jangka pendek",
+    "group_name": "Pinjaman pendek"
+  },
+  {
+    "code": "2301",
+    "name": "Pinjaman jangka panjang",
+    "group_name": "Pinjaman panjang"
+  },
+  {
+    "code": "3101",
+    "name": "Modal pemilik",
+    "group_name": "Modal"
+  },
+  {
+    "code": "3201",
+    "name": "Saldo laba sebelumnya",
+    "group_name": "Saldo laba"
+  },
+  {
+    "code": "3301",
+    "name": "Prive / distribusi pemilik",
+    "group_name": "Prive"
+  },
+  {
+    "code": "4101",
+    "name": "Pendapatan jasa website",
+    "group_name": "Pendapatan"
+  },
+  {
+    "code": "4102",
+    "name": "Pendapatan kelola iklan",
+    "group_name": "Pendapatan"
+  },
+  {
+    "code": "4103",
+    "name": "Pendapatan maintenance / hosting",
+    "group_name": "Pendapatan"
+  },
+  {
+    "code": "4104",
+    "name": "Penjualan barang / jasa lain",
+    "group_name": "Pendapatan"
+  },
+  {
+    "code": "4191",
+    "name": "Retur / diskon penjualan",
+    "group_name": "Pendapatan"
+  },
+  {
+    "code": "5101",
+    "name": "HPP domain / hosting klien",
+    "group_name": "HPP"
+  },
+  {
+    "code": "5102",
+    "name": "HPP tenaga lepas proyek",
+    "group_name": "HPP"
+  },
+  {
+    "code": "5103",
+    "name": "HPP barang / biaya langsung lain",
+    "group_name": "HPP"
+  },
+  {
+    "code": "6101",
+    "name": "Beban iklan / pemasaran",
+    "group_name": "Opex"
+  },
+  {
+    "code": "6102",
+    "name": "Beban gaji / honor operasional",
+    "group_name": "Opex"
+  },
+  {
+    "code": "6103",
+    "name": "Beban server / software internal",
+    "group_name": "Opex"
+  },
+  {
+    "code": "6104",
+    "name": "Beban sewa / listrik / internet",
+    "group_name": "Opex"
+  },
+  {
+    "code": "6105",
+    "name": "Beban administrasi bank",
+    "group_name": "Opex"
+  },
+  {
+    "code": "6106",
+    "name": "Beban transportasi",
+    "group_name": "Opex"
+  },
+  {
+    "code": "6107",
+    "name": "Beban operasional lain",
+    "group_name": "Opex"
+  },
+  {
+    "code": "6201",
+    "name": "Beban penyusutan",
+    "group_name": "Penyusutan"
+  },
+  {
+    "code": "7101",
+    "name": "Pendapatan lain",
+    "group_name": "Pendapatan lain"
+  },
+  {
+    "code": "8101",
+    "name": "Beban bunga",
+    "group_name": "Bunga"
+  },
+  {
+    "code": "8102",
+    "name": "Beban lain",
+    "group_name": "Beban lain"
+  },
+  {
+    "code": "9101",
+    "name": "Beban pajak penghasilan",
+    "group_name": "Pajak"
+  }
+]

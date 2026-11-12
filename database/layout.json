@@ -1,0 +1,114 @@
+{
+  "orders": {
+    "sheet": "Pelanggan",
+    "row": 5,
+    "fields": [
+      "order_id",
+      "customer",
+      "domain",
+      "chat",
+      "source",
+      "kind",
+      "status",
+      "paid",
+      "package",
+      "duration",
+      "value",
+      "cash",
+      "cost",
+      "start",
+      "_",
+      "hours",
+      "notes"
+    ],
+    "headers": [
+      "ID order",
+      "ID pelanggan",
+      "Nama / domain",
+      "Chat pertama order",
+      "Sumber",
+      "Jenis order",
+      "Status",
+      "Tanggal bayar pertama",
+      "Paket",
+      "Durasi bulan",
+      "Nilai order (Rp)",
+      "Kas diterima kumulatif",
+      "HPP order (Rp)",
+      "Mulai layanan",
+      "Jatuh tempo renewal",
+      "Jam kerja total",
+      "Alasan / follow-up"
+    ]
+  },
+  "ads": {
+    "sheet": "Iklan",
+    "row": 5,
+    "fields": [
+      "month",
+      "spend",
+      "promo",
+      "bank",
+      "notes"
+    ],
+    "headers": [
+      "Awal bulan",
+      "Spend Google Ads",
+      "Kredit promo terpakai",
+      "Pembayaran dari bank",
+      "Catatan / sumber"
+    ]
+  },
+  "journal": {
+    "sheet": "Transaksi",
+    "row": 6,
+    "fields": [
+      "date",
+      "proof",
+      "description",
+      "party",
+      "invoice",
+      "debit",
+      "credit",
+      "amount",
+      "activity",
+      "due",
+      "notes"
+    ],
+    "headers": [
+      "Tanggal",
+      "No. bukti",
+      "Uraian transaksi",
+      "Pelanggan / vendor",
+      "Referensi invoice",
+      "Akun debit",
+      "Akun kredit",
+      "Nominal (Rp)",
+      "Aktivitas kas",
+      "Jatuh tempo",
+      "Catatan"
+    ]
+  },
+  "accounts": {
+    "sheet": "Akun & Saldo",
+    "row": 6,
+    "fields": [
+      "_",
+      "code",
+      "name",
+      "group_name",
+      "_",
+      "opening_debit",
+      "opening_credit"
+    ],
+    "headers": [
+      "Pilihan akun",
+      "Kode",
+      "Nama akun",
+      "Kelompok",
+      "Normal",
+      "Awal debit",
+      "Awal kredit"
+    ]
+  }
+}

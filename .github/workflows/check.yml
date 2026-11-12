@@ -1,0 +1,21 @@
+name: Laravel checks
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  application:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: pdo_sqlite, gd, zip, mbstring, xml
+          tools: composer:v2
+      - run: cp .env.example .env && touch database/database.sqlite
+      - run: composer install --no-interaction --prefer-dist
+      - run: php artisan key:generate && php artisan migrate --force
+      - run: php artisan view:cache && php artisan route:list && php tests/smoke.php
+      - run: |
+          php artisan serve > /tmp/webin-server.log 2>&1 &
+          curl --retry 10 --retry-connrefused --fail --silent http://127.0.0.1:8000/login | grep 'Masuk ke ruang kerja'

@@ -1,0 +1,1 @@
+<div class="bar">@if($rows->previousPageUrl())<a href="{{ $rows->previousPageUrl() }}">← Sebelumnya</a>@endif<span>{{ $rows->total() }} baris · Halaman {{ $rows->currentPage() }}</span>@if($rows->nextPageUrl())<a href="{{ $rows->nextPageUrl() }}">Berikutnya →</a>@endif</div>
