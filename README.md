@@ -31,3 +31,11 @@ Buka http://127.0.0.1:8000 dan masuk dengan password yang dibuat. Untuk macOS/Li
 Impor memvalidasi header dan membatalkan seluruh file jika menemukan baris tidak valid. Impor ulang identik melewati transaksi yang sama, termasuk jika ada beberapa transaksi identik yang sah dalam satu file. ID order dan bulan iklan yang sudah ada dilewati, sedangkan saldo awal akun diperbarui. Koreksi transaksi lama langsung melalui formulir edit agar perubahan baris pada file tidak menghasilkan jurnal tambahan. Baris lama yang dikeluarkan dari workbook tidak menghapus data aplikasi.
 
 Aplikasi ini memakai satu akun admin internal. Workbook, password, saldo awal aktual dan database pelanggan tidak disertakan dalam repositori. Cadangkan database lokal sebelum mengganti saldo pembukaan.
+
+## Mencatat transaksi dan perpanjangan
+
+Di **Transaksi → Tambah data**, pilih tujuan transaksi. Untuk pembayaran pertama, pilih **Order baru / repeat order + pembayaran**, isi nilai kontrak penuh, data akuisisi, paket, durasi, dan tanggal mulai. ID order dibuat otomatis. Untuk pembayaran berikutnya atau HPP, pilih order yang sudah ada. Gunakan tujuan transaksi Google Ads yang sesuai untuk memperbarui angka iklan bulanan. Prospek yang belum melakukan pembayaran tetap bisa dicatat dari Pelanggan. Jurnal umum dan impor Excel lama tidak otomatis dipasangkan berdasarkan nama atau nominal.
+
+**Langganan** menampilkan pengingat dari H-14 sampai hari jatuh tempo. Klik **Perpanjang** untuk mencatat pembayaran dan periode baru lewat formulir Transaksi. Di **SSL**, pilih bulan untuk melihat website yang kedaluwarsa sejak tanggal 3 bulan tersebut sampai tanggal 3 bulan berikutnya (inklusif). Website sebelum rentang itu dan website tanpa tanggal tersedia di filter terpisah. Setelah sertifikat diperpanjang, isi tanggal kedaluwarsa yang sebenarnya dan simpan. Aplikasi menjaga riwayat tanggal per domain lintas periode langganan.
+
+Untuk memperbarui instalasi yang sudah berisi data, jalankan `git pull --ff-only origin main` lalu `php artisan migrate`.

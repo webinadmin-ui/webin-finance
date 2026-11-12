@@ -1,5 +1,5 @@
 <?php
-use App\{Records,Reports,Workbook};
+use App\{JournalEntry,Records,Reports,SubscriptionAlerts,Workbook};
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Hash,Route};
@@ -17,7 +17,7 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
     Route::get('/',function(Request $r,Reports $reports){
         $r->validate(['from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from']);
         $from=$r->input('from') ?: now()->startOfMonth()->toDateString(); $to=$r->input('to') ?: now()->endOfMonth()->toDateString();
-        return view('dashboard',['from'=>$from,'to'=>$to,'acquisition'=>$reports->acquisition($from,$to)]+$reports->finance($from,$to));
+        return view('dashboard',['from'=>$from,'to'=>$to,'alerts'=>SubscriptionAlerts::counts(CarbonImmutable::today()),'acquisition'=>$reports->acquisition($from,$to)]+$reports->finance($from,$to));
     });
     Route::view('/import','import');
     Route::post('/import',function(Request $r,Workbook $reader){
@@ -29,12 +29,31 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
     });
     Route::get('/subscriptions',function(Request $r){
         $today=now('Asia/Jakarta')->toDateString();
-        $q=DB::table('orders as o')->where('status','Bayar')->whereRaw("lower(coalesce(duration,'')) <> 'one time'")
-            ->whereNotExists(fn($q)=>$q->selectRaw('1')->from('orders as n')->whereColumn('n.renews','o.order_id'));
+        $q=SubscriptionAlerts::current();
         match($r->input('filter')){
             'missing'=>$q->whereNull('expires'),'overdue'=>$q->where('expires','<',$today),
-            'soon'=>$q->whereBetween('expires',[$today,CarbonImmutable::parse($today)->addDays(30)->toDateString()]),default=>null};
-        return view('subscriptions',['rows'=>$q->orderBy('expires')->paginate(50)->withQueryString(),'today'=>$today]);
+            'soon'=>$q->whereBetween('expires',[$today,CarbonImmutable::parse($today)->addDays(14)->toDateString()]),default=>null};
+        return view('subscriptions',['rows'=>$q->orderBy('expires')->paginate(50)->withQueryString(),'today'=>$today,'alerts'=>SubscriptionAlerts::counts(CarbonImmutable::today())]);
+    });
+    Route::get('/ssl',function(Request $r){
+        $r->validate(['month'=>'nullable|date_format:Y-m','filter'=>'nullable|in:due,missing,overdue,all']);
+        $month=$r->input('month') ?: now()->format('Y-m');
+        [$start,$end]=SubscriptionAlerts::window(CarbonImmutable::parse($month.'-01'));
+        $filter=$r->input('filter') ?: 'due'; $sites=SubscriptionAlerts::websites();
+        $counts=['due'=>(clone $sites)->whereBetween('ssl.expiry',[$start,$end])->count(),
+            'missing'=>(clone $sites)->whereNull('ssl.id')->count(),'overdue'=>(clone $sites)->where('ssl.expiry','<',$start)->count()];
+        match($filter){
+            'due'=>$sites->whereBetween('ssl.expiry',[$start,$end]),'missing'=>$sites->whereNull('ssl.id'),
+            'overdue'=>$sites->where('ssl.expiry','<',$start),default=>null};
+        return view('ssl',compact('month','start','end','filter','counts')+['rows'=>$sites->orderBy('ssl.expiry')->orderBy('sites.domain')->paginate(50)->withQueryString()]);
+    });
+    Route::post('/ssl',function(Request $r){
+        $v=$r->validate(['domain'=>'required|string','expiry'=>'required|date_format:Y-m-d','version'=>'required|integer|min:0']);
+        DB::transaction(function() use($v){
+            abort_unless(SubscriptionAlerts::websites()->where('sites.domain',$v['domain'])->exists(),404);
+            SubscriptionAlerts::save($v['domain'],$v['expiry'],(int)$v['version']);
+        },3);
+        return back()->with('message','Tanggal kedaluwarsa SSL disimpan.');
     });
     Route::get('/records/{table}',function(Request $r,string $table){
         $layout=Records::layouts()[$table]; $key=match($table){'journal'=>'id','orders'=>'order_id','ads'=>'month'};
@@ -43,13 +62,18 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
             foreach(array_diff($layout['fields'],['_']) as $field) $q->orWhere($field,'like','%'.$term.'%');
         });
         $editing=$r->filled('edit')?$q->newQuery()->from($table)->where($key,$r->input('edit'))->first():null;
-        $parent=$table==='orders' && $r->filled('renew')?DB::table('orders')->where('order_id',$r->input('renew'))->first():null;
+        $parent=in_array($table,['orders','journal'],true) && $r->filled('renew')?DB::table('orders')->where('order_id',$r->input('renew'))->first():null;
         return view('records',compact('layout','table','key','editing','parent')+['rows'=>$q->orderByDesc(match($table){'orders'=>'chat','journal'=>'date','ads'=>'month'})->paginate(30)->withQueryString(),
+            'orderChoices'=>$table==='journal' ? DB::table('orders')->select('order_id','domain','package','customer')->orderBy('domain')->get() : [],
             'accounts'=>DB::table('accounts')->orderBy('code')->get()]);
     })->whereIn('table',['journal','orders','ads']);
     Route::post('/records/{table}',function(Request $r,string $table){
         $key=match($table){'journal'=>'id','orders'=>'order_id','ads'=>'month'};
         $data=Records::validate($table,$r->all());
+        if($table==='journal'){
+            JournalEntry::save($r,$data);
+            return redirect('/records/journal')->with('message','Transaksi dan data terkait tersimpan.');
+        }
         if($r->filled('edit')){
             $id=$r->input('edit'); abort_unless(DB::table($table)->where($key,$id)->exists(),404);
             unset($data[$key]); DB::table($table)->where($key,$id)->update($data);

@@ -1,6 +1,7 @@
 @extends('base')
 @section('title','Ringkasan usaha')
 @section('content')
+@include('alert-links')
 @php($rp=fn($v)=>'Rp '.number_format($v,0,',','.'))
 <form class="bar"><label>Dari<input type="date" name="from" value="{{ $from }}" required></label><label>Sampai<input type="date" name="to" value="{{ $to }}" required></label><button>Tampilkan</button></form>
 <div class="cards">@foreach(['Laba bersih'=>array_sum($income),'Pendapatan bersih'=>$income['Pendapatan']??0,'Arus kas neto'=>array_sum($flows),'Nilai order bayar'=>$acquisition['Nilai order bayar (Rp)']] as $label=>$v)<article><small>{{ $label }}</small><strong>{{ $rp($v) }}</strong></article>@endforeach</div>
