@@ -3,7 +3,6 @@ namespace App;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
 class JournalEntry
@@ -80,7 +79,8 @@ class JournalEntry
             if(!$parent || !is_numeric($input['duration'])) throw ValidationException::withMessages(['order'=>'Pilih langganan berjalan dan durasi bulanan untuk diperpanjang.']);
             $input['customer']=$parent->customer; $input['domain']=$parent->domain;
         }
-        $id=(string)Str::ulid();
+        $id=OrderNumbers::next();
+        if(!$parent && $r->has('customer_choice')) $input['customer']=CustomerChoice::resolve($r);
         $order=Records::validate('orders',array_merge($input,['order_id'=>$id,'kind'=>$parent?'Renewal':($input['kind']??'Baru'),
             'status'=>'Bayar','cash'=>0,'paid'=>null]));
         $order['renews']=$parent?->order_id;

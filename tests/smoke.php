@@ -72,3 +72,20 @@ postEntry(['edit'=>DB::table('journal')->where('submission',$adToken)->value('id
 verify(DB::table('ads')->where('month','2026-11-01')->value('spend')==0 && DB::table('ads')->where('month','2026-12-01')->value('bank')==60,'Move ad spend and cash between months');
 postEntry(['purpose'=>'cost','linked_order'=>$order->order_id,'submission'=>(string)Illuminate\Support\Str::uuid()],'2026-11-10',60);
 verify(DB::table('orders')->where('order_id',$order->order_id)->value('cost')==60,'Linked order cost');
+$book->getSheetByName('Pelanggan')->setCellValue('A6','25');
+$xlsx=tempnam(sys_get_temp_dir(),'xlsx');
+try {
+    (new Xlsx($book))->save($xlsx);
+    (new Workbook)->import($xlsx);
+} finally { unlink($xlsx); }
+$repeat=$new;
+$repeat['submission']=(string)Illuminate\Support\Str::uuid();
+$repeat['customer_choice']='id:C2';
+unset($repeat['order']['customer']);
+postEntry($repeat,'2026-11-12',80);
+verify(DB::table('orders')->where('order_id','26')->value('customer')==='C2','Continue order numbering after Excel import');
+$repeat['submission']=(string)Illuminate\Support\Str::uuid();
+$repeat['customer_choice']='new';
+$repeat['new_customer']='fresh-customer';
+postEntry($repeat,'2026-11-12',90);
+verify(DB::table('orders')->where('order_id','27')->value('customer')==='fresh-customer','New customer ID');

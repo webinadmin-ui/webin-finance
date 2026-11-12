@@ -13,7 +13,7 @@
 <label>Kedaluwarsa SSL awal<input type="date" name="service[ssl]" value="{{ old('service.ssl') }}"></label>
 </div></fieldset>
 <fieldset data-purposes="new"><legend>Pelanggan</legend><div class="fields">
-<label>ID pelanggan<input name="order[customer]" value="{{ old('order.customer') }}" required placeholder="Gunakan ID lama untuk pelanggan lama"></label>
+@include('customer-choice')
 <label>Nama / domain<input name="order[domain]" value="{{ old('order.domain') }}" required></label>
 <label>Jenis order<select name="order[kind]"><option>Baru</option><option @selected(old('order.kind')==='Repeat order')>Repeat order</option></select></label>
 </div></fieldset>

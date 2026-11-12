@@ -1,5 +1,5 @@
 <?php
-use App\{JournalEntry,Records,Reports,SubscriptionAlerts,Workbook};
+use App\{CustomerChoice,OrderNumbers,JournalEntry,Records,Reports,SubscriptionAlerts,Workbook};
 use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\{DB,Hash,Route};
@@ -64,12 +64,34 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
         $editing=$r->filled('edit')?$q->newQuery()->from($table)->where($key,$r->input('edit'))->first():null;
         $parent=in_array($table,['orders','journal'],true) && $r->filled('renew')?DB::table('orders')->where('order_id',$r->input('renew'))->first():null;
         return view('records',compact('layout','table','key','editing','parent')+['rows'=>$q->orderByDesc(match($table){'orders'=>'chat','journal'=>'date','ads'=>'month'})->paginate(30)->withQueryString(),
+            'customers'=>in_array($table,['journal','orders'],true) ? DB::table('orders')->distinct()->orderBy('customer')->pluck('customer') : collect(),
             'orderChoices'=>$table==='journal' ? DB::table('orders')->select('order_id','domain','package','customer')->orderBy('domain')->get() : [],
             'accounts'=>DB::table('accounts')->orderBy('code')->get()]);
     })->whereIn('table',['journal','orders','ads']);
     Route::post('/records/{table}',function(Request $r,string $table){
         $key=match($table){'journal'=>'id','orders'=>'order_id','ads'=>'month'};
-        $data=Records::validate($table,$r->all());
+        $input=$r->all();
+        if($table==='orders' && !$r->filled('edit')){
+            $id=DB::transaction(function() use($r,$input){
+                $input['order_id']=OrderNumbers::next();
+                if($r->has('customer_choice')) $input['customer']=CustomerChoice::resolve($r);
+                $data=Records::validate('orders',$input);
+                if($r->filled('renews')){
+                    $p=SubscriptionAlerts::current()->where('o.order_id',$r->input('renews'))->first();
+                    if(!$p || $p->customer!==$data['customer'] || $data['kind']!=='Renewal' || $data['status']!=='Bayar' || empty($data['expires']))
+                        throw \Illuminate\Validation\ValidationException::withMessages(['renews'=>'Periksa pelanggan, tanggal mulai, durasi dan status perpanjangan.']);
+                    $data['renews']=$p->order_id;
+                }
+                DB::table('orders')->insert($data);
+                return $data['order_id'];
+            },3);
+            return redirect('/records/orders')->with('message',"Order #$id tersimpan.");
+        }
+        if($table==='orders'){
+            $input['order_id']=(string)$r->input('edit');
+            if($r->has('customer_choice')) $input['customer']=CustomerChoice::resolve($r);
+        }
+        $data=Records::validate($table,$input);
         if($table==='journal'){
             JournalEntry::save($r,$data);
             return redirect('/records/journal')->with('message','Transaksi dan data terkait tersimpan.');
@@ -78,12 +100,6 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
             $id=$r->input('edit'); abort_unless(DB::table($table)->where($key,$id)->exists(),404);
             unset($data[$key]); DB::table($table)->where($key,$id)->update($data);
         }else{
-            if($table==='orders' && $r->filled('renews')){
-                $p=DB::table('orders')->where('order_id',$r->input('renews'))->first();
-                if(!$p || $p->customer!==$data['customer'] || $data['kind']!=='Renewal' || $data['status']!=='Bayar' || empty($data['start']) || empty($data['expires']))
-                    return back()->withInput()->withErrors('Periksa pelanggan, tanggal mulai, durasi dan status perpanjangan.');
-                $data['renews']=$p->order_id;
-            }
             try{DB::table($table)->insert($data);}catch(\Illuminate\Database\UniqueConstraintViolationException $e){
                 return back()->withInput()->withErrors('ID, bulan, atau perpanjangan sudah tercatat.');
             }
