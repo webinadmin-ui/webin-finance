@@ -9,10 +9,17 @@
 @if($parent && $table==='orders')<input type="hidden" name="renews" value="{{ $parent->order_id }}">@endif
 <div class="fields">@foreach($columns as $index=>$field)
 @php($value=old($field,$editing->$field ?? $defaults[$field] ?? ''))
+@if($table==='orders' && $field==='customer')
+@include('customer-choice',['currentCustomer'=>$editing->customer ?? $parent->customer ?? null])
+@elseif($table==='orders' && $field==='order_id')
+<label>ID order<input value="{{ $editing->order_id ?? 'Otomatis saat disimpan' }}" readonly></label>
+@else
 <label>{{ $layout['headers'][$index] }}
 @if(in_array($field,['debit','credit']))<select name="{{ $field }}" required><option value="">Pilih akun</option>@foreach($accounts as $a)<option value="{{ $a->code }}" @selected($value==$a->code)>{{ $a->code }} · {{ $a->name }}</option>@endforeach</select>
 @else<input name="{{ $field }}" type="{{ in_array($field,['date','due','month','paid','chat','start'])?'date':(in_array($field,['amount','value','cash','cost','spend','bank','promo'])?'number':'text') }}" step="any" value="{{ $value }}" @readonly($editing && $field===$key) list="options-{{ $field }}">
-@endif</label>@endforeach</div>
+@endif</label>
+@endif
+@endforeach</div>
 @foreach(['kind'=>['Baru','Repeat order','Renewal'],'source'=>['Google Ads','Repeat Order','Referral','Organik'],'status'=>['Prospek','Bayar','Batal','Refund'],'duration'=>['1','3','6','12','one time'],'activity'=>['Operasi','Investasi','Pendanaan']] as $field=>$options)<datalist id="options-{{ $field }}">@foreach($options as $opt)<option value="{{ $opt }}">@endforeach</datalist>@endforeach
 @if($table==='journal') @include('journal-details') @endif
 <button>Simpan</button></form></details>

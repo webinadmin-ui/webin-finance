@@ -55,6 +55,7 @@ class Workbook
                         $key=match($table){'journal'=>'import_key','orders'=>'order_id','ads'=>'month'};
                         if(DB::table($table)->where($key,$data[$key])->exists()){ $counts['skipped']++; continue; }
                         DB::table($table)->insert($data);
+                        if($table==='orders') OrderNumbers::observe($data['order_id']);
                     }
                     $counts['saved']++;
                 }
