@@ -72,3 +72,30 @@ postEntry(['edit'=>DB::table('journal')->where('submission',$adToken)->value('id
 verify(DB::table('ads')->where('month','2026-11-01')->value('spend')==0 && DB::table('ads')->where('month','2026-12-01')->value('bank')==60,'Move ad spend and cash between months');
 postEntry(['purpose'=>'cost','linked_order'=>$order->order_id,'submission'=>(string)Illuminate\Support\Str::uuid()],'2026-11-10',60);
 verify(DB::table('orders')->where('order_id',$order->order_id)->value('cost')==60,'Linked order cost');
+
+$sales2026=$reports->monthlySales(2026);
+verify($sales2026['months'][8]['revenue']==200 && $sales2026['months'][9]['order_value']==100,'Monthly sales Sep/Oct 2026');
+verify($sales2026['months'][10]['revenue']==450 && $sales2026['months'][10]['order_value']==500 && $sales2026['months'][10]['order_count']===1,'Monthly sales Nov 2026');
+
+$other=$new;
+$other['submission']=(string)Illuminate\Support\Str::uuid();
+$other['order']=['customer'=>'C3','domain'=>'other.test','source'=>'Google Ads','kind'=>'Baru','chat'=>'2026-11-01','package'=>'Web','duration'=>'2','start'=>'2026-11-25','value'=>300];
+postEntry($other,'2026-11-25',300);
+$c2Second=$new;
+$c2Second['submission']=(string)Illuminate\Support\Str::uuid();
+$c2Second['order']=['customer'=>'C2','domain'=>'demo2.test','source'=>'Google Ads','kind'=>'Repeat order','chat'=>'2026-11-01','package'=>'Web','duration'=>'2','start'=>'2026-11-25','value'=>200];
+postEntry($c2Second,'2026-11-25',200);
+
+$otherId=DB::table('orders')->where('domain','other.test')->value('order_id');
+verify(App\SubscriptionAlerts::stop('domain','OTHER.TEST','2026-11-26','Pindah vendor')===1,'Stop by domain');
+verify(App\SubscriptionAlerts::current()->where('o.order_id',$otherId)->doesntExist(),'Stopped domain excluded from current');
+verify(App\SubscriptionAlerts::stopped()->where('o.order_id',$otherId)->exists(),'Stopped domain present in stopped');
+verify(App\SubscriptionAlerts::websites()->where('sites.domain','other.test')->doesntExist(),'Stopped domain excluded from SSL');
+verify(App\SubscriptionAlerts::reactivate($otherId)===1,'Reactivate stopped order');
+verify(App\SubscriptionAlerts::current()->where('o.order_id',$otherId)->exists(),'Reactivated order back in current');
+
+verify(App\SubscriptionAlerts::stop('customer','C2','2026-11-27','Berhenti semua')===2,'Stop all active subscriptions for customer');
+verify(App\SubscriptionAlerts::current()->where('o.customer','C2')->count()===0,'Customer stopped orders excluded from current');
+verify(App\SubscriptionAlerts::counts($today)['soon']===1,'Only active C3 soon remains');
+verify($reports->monthlySales(2026)['months'][10]['order_value']==1000,'Stopped subscriptions preserve historical sales');
+echo "Monthly sales and stop subscription checks passed.\n";

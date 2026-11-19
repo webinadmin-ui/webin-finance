@@ -55,4 +55,41 @@ class Reports
             'Order renewal bayar'=>(clone $paid)->where('kind','Renewal')->count(),
             'Renewal jatuh tempo'=>DB::table('orders')->whereBetween('expires',[$from,$to])->count()];
     }
+
+    public function monthlySales(int $year): array {
+        $start=sprintf('%04d-01-01',$year); $end=sprintf('%04d-12-31',$year);
+        $labels=['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        $months=[];
+        for($m=1;$m<=12;$m++){
+            $months[$m]=['month'=>$m,'key'=>sprintf('%04d-%02d',$year,$m),'label'=>$labels[$m-1],
+                'revenue'=>0.0,'order_value'=>0.0,'order_count'=>0];
+        }
+        $revenueSet=array_flip(DB::table('accounts')->where('group_name','Pendapatan')->pluck('code')->all());
+        if($revenueSet){
+            foreach(DB::table('journal')->whereBetween('date',[$start,$end])->select('date','debit','credit','amount')->cursor() as $entry){
+                $m=(int)substr((string)$entry->date,5,2);
+                if(!isset($months[$m])) continue;
+                if(isset($revenueSet[$entry->credit])) $months[$m]['revenue']+=(float)$entry->amount;
+                if(isset($revenueSet[$entry->debit])) $months[$m]['revenue']-=(float)$entry->amount;
+            }
+        }
+        foreach(DB::table('orders')->where('status','Bayar')->whereBetween('paid',[$start,$end])->select('paid','value')->cursor() as $order){
+            $m=(int)substr((string)$order->paid,5,2);
+            if(!isset($months[$m])) continue;
+            $months[$m]['order_value']+=(float)($order->value??0);
+            $months[$m]['order_count']++;
+        }
+        $totals=['revenue'=>array_sum(array_column($months,'revenue')),
+            'order_value'=>array_sum(array_column($months,'order_value')),
+            'order_count'=>array_sum(array_column($months,'order_count'))];
+        $jRange=DB::table('journal')->selectRaw('min(date) as min_d, max(date) as max_d')->first();
+        $oRange=DB::table('orders')->where('status','Bayar')->whereNotNull('paid')->selectRaw('min(paid) as min_d, max(paid) as max_d')->first();
+        $years=[$year,(int)date('Y')];
+        foreach([$jRange?->min_d,$jRange?->max_d,$oRange?->min_d,$oRange?->max_d] as $d){
+            if($d && strlen((string)$d)>=4) $years[]=(int)substr((string)$d,0,4);
+        }
+        $availableYears=range(min($years),max($years));
+        rsort($availableYears);
+        return ['year'=>$year,'months'=>array_values($months),'totals'=>$totals,'available_years'=>$availableYears];
+    }
 }

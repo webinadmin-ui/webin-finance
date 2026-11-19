@@ -7,10 +7,41 @@ use Illuminate\Validation\ValidationException;
 
 class SubscriptionAlerts
 {
-    public static function current(){
+    private static function tracked(){
         return DB::table('orders as o')->where('o.status','Bayar')
             ->whereRaw("lower(coalesce(o.duration,'')) <> 'one time'")
             ->whereNotExists(fn($q)=>$q->selectRaw('1')->from('orders as n')->whereColumn('n.renews','o.order_id'));
+    }
+
+    public static function current(){
+        return self::tracked()->whereNull('o.stopped_at');
+    }
+
+    public static function stopped(){
+        return self::tracked()->whereNotNull('o.stopped_at');
+    }
+
+    public static function stop(string $scope,string $target,string $stoppedAt,?string $reason=null): int {
+        $target=trim($target);
+        $reason=$reason!==null && trim($reason)!=='' ? trim($reason) : null;
+        return DB::transaction(function() use($scope,$target,$stoppedAt,$reason){
+            $q=self::current();
+            match($scope){
+                'order'=>$q->where('o.order_id',$target),
+                'domain'=>$q->whereRaw('lower(trim(o.domain)) = ?',[strtolower($target)]),
+                'customer'=>$q->where('o.customer',$target),
+            };
+            $ids=$q->pluck('o.order_id');
+            if($ids->isEmpty()) return 0;
+            return DB::table('orders')->whereIn('order_id',$ids)->update(['stopped_at'=>$stoppedAt,'stopped_reason'=>$reason]);
+        },3);
+    }
+
+    public static function reactivate(string $orderId): int {
+        return DB::transaction(function() use($orderId){
+            if(!self::stopped()->where('o.order_id',$orderId)->exists()) return 0;
+            return DB::table('orders')->where('order_id',$orderId)->update(['stopped_at'=>null,'stopped_reason'=>null]);
+        },3);
     }
 
     public static function websites(){
