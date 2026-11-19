@@ -15,9 +15,11 @@ Route::post('/login',function(Request $r){
 Route::middleware(\App\AdminAccess::class)->group(function(){
     Route::post('/logout',function(Request $r){$r->session()->invalidate(); $r->session()->regenerateToken(); return redirect('/login');});
     Route::get('/',function(Request $r,Reports $reports){
-        $r->validate(['from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from']);
+        $r->validate(['from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from','chart_year'=>'nullable|integer|min:2000|max:2100']);
         $from=$r->input('from') ?: now()->startOfMonth()->toDateString(); $to=$r->input('to') ?: now()->endOfMonth()->toDateString();
-        return view('dashboard',['from'=>$from,'to'=>$to,'alerts'=>SubscriptionAlerts::counts(CarbonImmutable::today()),'acquisition'=>$reports->acquisition($from,$to)]+$reports->finance($from,$to));
+        $chartYear=(int)($r->input('chart_year') ?: substr($to,0,4));
+        return view('dashboard',['from'=>$from,'to'=>$to,'alerts'=>SubscriptionAlerts::counts(CarbonImmutable::today()),
+            'acquisition'=>$reports->acquisition($from,$to),'monthlySales'=>$reports->monthlySales($chartYear)]+$reports->finance($from,$to));
     });
     Route::view('/import','import');
     Route::post('/import',function(Request $r,Workbook $reader){
@@ -28,12 +30,40 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
         return back()->with('message',"Disimpan: {$counts['saved']}. Sudah ada: {$counts['skipped']}.");
     });
     Route::get('/subscriptions',function(Request $r){
+        $r->validate(['filter'=>'nullable|in:soon,overdue,missing,stopped']);
         $today=now('Asia/Jakarta')->toDateString();
-        $q=SubscriptionAlerts::current();
-        match($r->input('filter')){
+        $filter=(string)($r->input('filter') ?: '');
+        $active=SubscriptionAlerts::current();
+        $counts=[
+            ''=>(clone $active)->count(),
+            'soon'=>(clone $active)->whereBetween('expires',[$today,CarbonImmutable::parse($today)->addDays(14)->toDateString()])->count(),
+            'overdue'=>(clone $active)->where('expires','<',$today)->count(),
+            'missing'=>(clone $active)->whereNull('expires')->count(),
+            'stopped'=>SubscriptionAlerts::stopped()->count(),
+        ];
+        $q=$filter==='stopped'
+            ? SubscriptionAlerts::stopped()->orderByDesc('stopped_at')->orderBy('domain')
+            : (clone $active)->orderBy('expires');
+        match($filter){
             'missing'=>$q->whereNull('expires'),'overdue'=>$q->where('expires','<',$today),
             'soon'=>$q->whereBetween('expires',[$today,CarbonImmutable::parse($today)->addDays(14)->toDateString()]),default=>null};
-        return view('subscriptions',['rows'=>$q->orderBy('expires')->paginate(50)->withQueryString(),'today'=>$today,'alerts'=>SubscriptionAlerts::counts(CarbonImmutable::today())]);
+        $activeChoices=(clone $active)->select('order_id','customer','domain','package','expires')->orderBy('domain')->get();
+        return view('subscriptions',['rows'=>$q->paginate(50)->withQueryString(),'today'=>$today,'filter'=>$filter,
+            'counts'=>$counts,'activeChoices'=>$activeChoices,'alerts'=>SubscriptionAlerts::counts(CarbonImmutable::today())]);
+    });
+    Route::post('/subscriptions/stop',function(Request $r){
+        $v=$r->validate(['scope'=>'required|in:order,domain,customer','order_id'=>'required_if:scope,order|nullable|string',
+            'domain'=>'required_if:scope,domain|nullable|string','customer'=>'required_if:scope,customer|nullable|string',
+            'stopped_at'=>'nullable|date_format:Y-m-d','stopped_reason'=>'nullable|string|max:1000']);
+        $target=match($v['scope']){'order'=>$v['order_id'],'domain'=>$v['domain'],'customer'=>$v['customer']};
+        $count=SubscriptionAlerts::stop($v['scope'],$target,($v['stopped_at'] ?? null) ?: now('Asia/Jakarta')->toDateString(),$v['stopped_reason'] ?? null);
+        if($count===0) return back()->withErrors(['subscription'=>'Langganan aktif yang dipilih tidak ditemukan.']);
+        return back()->with('message',"$count langganan ditandai berhenti.");
+    });
+    Route::post('/subscriptions/reactivate',function(Request $r){
+        $v=$r->validate(['order_id'=>'required|string']);
+        if(SubscriptionAlerts::reactivate($v['order_id'])===0) return back()->withErrors(['subscription'=>'Data langganan berhenti tidak ditemukan.']);
+        return back()->with('message','Langganan diaktifkan kembali.');
     });
     Route::get('/ssl',function(Request $r){
         $r->validate(['month'=>'nullable|date_format:Y-m','filter'=>'nullable|in:due,missing,overdue,all']);
