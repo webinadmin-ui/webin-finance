@@ -14,7 +14,7 @@
 @elseif($table==='orders' && $field==='order_id')
 <label>ID order<input value="{{ $editing->order_id ?? 'Otomatis saat disimpan' }}" readonly></label>
 @else
-<label>{{ $layout['headers'][$index] }}
+<label>{{ $table==='journal' && $field==='party' ? 'Vendor' : $layout['headers'][$index] }}
 @if(in_array($field,['debit','credit']))<select name="{{ $field }}" required><option value="">Pilih akun</option>@foreach($accounts as $a)<option value="{{ $a->code }}" @selected($value==$a->code)>{{ $a->code }} · {{ $a->name }}</option>@endforeach</select>
 @else<input name="{{ $field }}" type="{{ in_array($field,['date','due','month','paid','chat','start'])?'date':(in_array($field,['amount','value','cash','cost','spend','bank','promo'])?'number':'text') }}" step="any" value="{{ $value }}" @readonly($editing && $field===$key) list="options-{{ $field }}">
 @endif</label>
@@ -24,5 +24,5 @@
 @if($table==='journal') @include('journal-details') @endif
 <button>Simpan</button></form></details>
 <form class="bar"><label>Cari data<input name="q" value="{{ request('q') }}" placeholder="Nama, akun, atau referensi"></label><button>Cari</button></form>
-<div class="panel scroll"><table><tr><th></th>@foreach($columns as $i=>$f)<th>{{ $layout['headers'][$i] }}</th>@endforeach</tr>@forelse($rows as $row)<tr><td><a href="?{{ http_build_query(['edit'=>$row->$key]) }}">Edit</a></td>@foreach($columns as $f)<td>{{ $row->$f ?? '—' }}</td>@endforeach</tr>@empty<tr><td colspan="8">Belum ada data yang cocok.</td></tr>@endforelse</table>@include('pages')</div>
+<div class="panel scroll"><table><tr><th></th>@foreach($columns as $i=>$f)<th>{{ $table==='journal' && $f==='party' ? 'Vendor' : $layout['headers'][$i] }}</th>@endforeach</tr>@forelse($rows as $row)<tr><td><a href="?{{ http_build_query(['edit'=>$row->$key]) }}">Edit</a></td>@foreach($columns as $f)<td>{{ $row->$f ?? '—' }}</td>@endforeach</tr>@empty<tr><td colspan="8">Belum ada data yang cocok.</td></tr>@endforelse</table>@include('pages')</div>
 @endsection
