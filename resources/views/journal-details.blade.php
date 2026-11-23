@@ -2,7 +2,7 @@
 <p>Transaksi {{ $editing->purpose }} @if($editing->order_id) · Order {{ $editing->order_id }} @endif. Perubahan tanggal dan nominal memperbarui laporan terkait.</p>
 @else
 <input type="hidden" name="submission" value="{{ old('submission',(string)Illuminate\Support\Str::uuid()) }}">
-<label>Tujuan transaksi<select name="purpose" id="purpose">@foreach(['general'=>'Transaksi umum','new'=>'Order baru / repeat order + pembayaran','payment'=>'DP / pelunasan order yang sudah ada','renew'=>'Perpanjangan langganan + pembayaran','cost'=>'HPP untuk order','ad_spend'=>'Pemakaian Google Ads','ad_paid'=>'Pemakaian Google Ads langsung dibayar bank','ad_cash'=>'Pembayaran tagihan Google Ads','ad_promo'=>'Kredit promo Google Ads terpakai'] as $key=>$label)
+<label>Tujuan transaksi<select name="purpose" id="purpose">@foreach(['general'=>'Transaksi umum','new'=>'DP / order baru / repeat order + pembayaran','payment'=>'Pelunasan / cicilan order yang sudah ada','renew'=>'Perpanjangan langganan + pembayaran','cost'=>'HPP untuk order','ad_spend'=>'Pemakaian Google Ads','ad_paid'=>'Pemakaian Google Ads langsung dibayar bank','ad_cash'=>'Pembayaran tagihan Google Ads','ad_promo'=>'Kredit promo Google Ads terpakai'] as $key=>$label)
 <option value="{{ $key }}" @selected(old('purpose',$parent?'renew':'general')===$key)>{{ $label }}</option>@endforeach</select></label>
 <fieldset data-purposes="renew payment cost"><legend>Order terkait</legend><select name="linked_order" aria-label="Order terkait" required><option value="">Pilih order</option>
 @foreach($orderChoices as $choice)<option value="{{ $choice->order_id }}" @selected(old('linked_order',$parent->order_id??'')==$choice->order_id)>{{ $choice->domain }} · {{ $choice->package }} · {{ $choice->order_id }}</option>@endforeach
@@ -12,7 +12,7 @@
 <label>Durasi bulan<input name="service[duration]" list="options-duration" value="{{ old('service.duration') }}"></label>
 <label>Kedaluwarsa SSL awal<input type="date" name="service[ssl]" value="{{ old('service.ssl') }}"></label>
 </div></fieldset>
-<fieldset data-purposes="new"><legend>Pelanggan</legend><div class="fields">
+<fieldset data-purposes="new"><legend>Data pelanggan &amp; domain</legend><div class="fields">
 @include('customer-choice')
 <label>Nama / domain<input name="order[domain]" value="{{ old('order.domain') }}" required></label>
 <label>Jenis order<select name="order[kind]"><option>Baru</option><option @selected(old('order.kind')==='Repeat order')>Repeat order</option></select></label>
