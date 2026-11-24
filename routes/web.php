@@ -85,8 +85,14 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
         },3);
         return back()->with('message','Tanggal kedaluwarsa SSL disimpan.');
     });
-    Route::get('/records/{table}',function(Request $r,string $table){
+    Route::get('/records/{table}',function(Request $r,string $table,Reports $reports){
         $layout=Records::layouts()[$table]; $key=match($table){'journal'=>'id','orders'=>'order_id','ads'=>'month'};
+        $chartMonth=null; $chartRange='all';
+        if($table==='orders'){
+            $r->validate(['chart_month'=>'nullable|date_format:Y-m','chart_range'=>'nullable|in:all,6m,3m,month']);
+            $chartMonth=$r->input('chart_month') ?: now('Asia/Jakarta')->format('Y-m');
+            $chartRange=$r->input('chart_range') ?: 'all';
+        }
         $q=DB::table($table);
         if($term=$r->input('q')) $q->where(function($q)use($layout,$term){
             foreach(array_diff($layout['fields'],['_']) as $field) $q->orWhere($field,'like','%'.$term.'%');
@@ -96,7 +102,9 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
         return view('records',compact('layout','table','key','editing','parent')+['rows'=>$q->orderByDesc(match($table){'orders'=>'chat','journal'=>'date','ads'=>'month'})->paginate(30)->withQueryString(),
             'customers'=>in_array($table,['journal','orders'],true) ? DB::table('orders')->distinct()->orderBy('customer')->pluck('customer') : collect(),
             'orderChoices'=>$table==='journal' ? DB::table('orders')->select('order_id','domain','package','customer')->orderBy('domain')->get() : [],
-            'accounts'=>DB::table('accounts')->orderBy('code')->get()]);
+            'accounts'=>DB::table('accounts')->orderBy('code')->get(),
+            'customerCharts'=>$table==='orders' ? $reports->customerDaily($chartMonth) : null,
+            'customerPattern'=>$table==='orders' ? $reports->customerWeeklyPattern($chartRange,$chartMonth) : null]);
     })->whereIn('table',['journal','orders','ads']);
     Route::post('/records/{table}',function(Request $r,string $table){
         $key=match($table){'journal'=>'id','orders'=>'order_id','ads'=>'month'};

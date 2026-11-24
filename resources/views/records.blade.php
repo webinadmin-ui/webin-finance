@@ -23,6 +23,7 @@
 @foreach(['kind'=>['Baru','Repeat order','Renewal'],'source'=>['Google Ads','Repeat Order','Referral','Organik'],'status'=>['Prospek','Bayar','Batal','Refund'],'duration'=>['1','3','6','12','one time'],'activity'=>['Operasi','Investasi','Pendanaan']] as $field=>$options)<datalist id="options-{{ $field }}">@foreach($options as $opt)<option value="{{ $opt }}">@endforeach</datalist>@endforeach
 @if($table==='journal') @include('journal-details') @endif
 <button>Simpan</button></form></details>
-<form class="bar"><label>Cari data<input name="q" value="{{ request('q') }}" placeholder="Nama, akun, atau referensi"></label><button>Cari</button></form>
+@if($table==='orders') @include('customer-charts') @endif
+<form class="bar">@if($table==='orders' && request()->filled('chart_month'))<input type="hidden" name="chart_month" value="{{ request('chart_month') }}">@endif @if($table==='orders' && request()->filled('chart_range'))<input type="hidden" name="chart_range" value="{{ request('chart_range') }}">@endif<label>Cari data<input name="q" value="{{ request('q') }}" placeholder="Nama, akun, atau referensi"></label><button>Cari</button></form>
 <div class="panel scroll"><table><tr><th></th>@foreach($columns as $i=>$f)<th>{{ $table==='journal' && $f==='party' ? 'Vendor' : $layout['headers'][$i] }}</th>@endforeach</tr>@forelse($rows as $row)<tr><td><a href="?{{ http_build_query(['edit'=>$row->$key]) }}">Edit</a></td>@foreach($columns as $f)<td>{{ $row->$f ?? '—' }}</td>@endforeach</tr>@empty<tr><td colspan="8">Belum ada data yang cocok.</td></tr>@endforelse</table>@include('pages')</div>
 @endsection
