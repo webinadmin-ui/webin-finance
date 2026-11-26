@@ -145,6 +145,63 @@ class Reports
             'totals'=>$totals,'trends'=>['chat'=>$chatTrend,'paid'=>$paidTrend]];
     }
 
+    public function customerCumulative(string $month,string $scope='month'): array {
+        if($scope==='all'){
+            $days=[];
+            for($d=1;$d<=31;$d++) $days[$d]=['day'=>$d,'weekday'=>null,'date'=>'Tgl '.$d,'chat_count'=>0,'chat_new_count'=>0,'paid_count'=>0,'paid_value'=>0.0];
+            foreach(DB::table('orders')->whereNotNull('chat')->select('chat','kind')->cursor() as $o){
+                $d=(int)substr((string)$o->chat,8,2);
+                if(!isset($days[$d])) continue;
+                $days[$d]['chat_count']++;
+                if($o->kind==='Baru') $days[$d]['chat_new_count']++;
+            }
+            foreach(DB::table('orders')->where('status','Bayar')->whereNotNull('paid')->select('paid','value')->cursor() as $o){
+                $d=(int)substr((string)$o->paid,8,2);
+                if(!isset($days[$d])) continue;
+                $days[$d]['paid_count']++;
+                $days[$d]['paid_value']+=(float)($o->value??0);
+            }
+            $daysList=array_values($days);
+            $activeDays=31;
+            $label='Semua bulan (Tgl 1–31)';
+        }else{
+            $scope='month';
+            $daily=$this->customerDaily($month);
+            $daysList=$daily['days'];
+            $activeDays=$daily['active_days'];
+            $label=$daily['month_label'];
+        }
+
+        $cumChat=0; $cumChatNew=0; $cumPaid=0; $cumPaidVal=0.0;
+        foreach($daysList as $i=>&$row){
+            if($i<$activeDays){
+                $cumChat+=$row['chat_count'];
+                $cumChatNew+=$row['chat_new_count'];
+                $cumPaid+=$row['paid_count'];
+                $cumPaidVal+=$row['paid_value'];
+                $row['cum_chat']=$cumChat;
+                $row['cum_chat_new']=$cumChatNew;
+                $row['cum_paid']=$cumPaid;
+                $row['cum_paid_value']=$cumPaidVal;
+            }else{
+                $row['cum_chat']=null;
+                $row['cum_chat_new']=null;
+                $row['cum_paid']=null;
+                $row['cum_paid_value']=null;
+            }
+        }
+        unset($row);
+
+        return [
+            'scope'=>$scope,
+            'month'=>$month,
+            'label'=>$label,
+            'active_days'=>$activeDays,
+            'days'=>$daysList,
+            'totals'=>['chat_count'=>$cumChat,'chat_new_count'=>$cumChatNew,'paid_count'=>$cumPaid,'paid_value'=>$cumPaidVal],
+        ];
+    }
+
     private function dailyTrend(array &$days,string $field,string $maField,int $activeDays): array {
         $total=0; $peakVal=0; $peakDay=null; $peakDate=null;
         $sumX=0.0; $sumY=0.0; $sumXX=0.0; $sumXY=0.0;

@@ -14,6 +14,27 @@ Route::post('/login',function(Request $r){
 
 Route::middleware(\App\AdminAccess::class)->group(function(){
     Route::post('/logout',function(Request $r){$r->session()->invalidate(); $r->session()->regenerateToken(); return redirect('/login');});
+    Route::view('/password','password');
+    Route::post('/password',function(Request $r){
+        $v=$r->validate([
+            'current_password'=>'required|string',
+            'password'=>'required|string|min:12|confirmed|different:current_password',
+        ],[
+            'current_password.required'=>'Password saat ini wajib diisi.',
+            'password.required'=>'Password baru wajib diisi.',
+            'password.min'=>'Password baru minimal 12 karakter.',
+            'password.confirmed'=>'Konfirmasi password baru tidak cocok.',
+            'password.different'=>'Password baru harus berbeda dari password saat ini.',
+        ]);
+        $admin=DB::table('admins')->first();
+        if(!$admin || !Hash::check($v['current_password'],$admin->password))
+            return back()->withErrors(['current_password'=>'Password saat ini tidak cocok.']);
+        $hash=Hash::make($v['password']);
+        DB::table('admins')->where('id',$admin->id)->update(['password'=>$hash]);
+        $r->session()->regenerate();
+        $r->session()->put('admin',hash('sha256',$hash));
+        return redirect('/password')->with('message','Password admin diperbarui.');
+    })->middleware('throttle:6,1,password');
     Route::get('/',function(Request $r,Reports $reports){
         $r->validate(['from'=>'nullable|date_format:Y-m-d','to'=>'nullable|date_format:Y-m-d|after_or_equal:from','chart_year'=>'nullable|integer|min:2000|max:2100']);
         $from=$r->input('from') ?: now()->startOfMonth()->toDateString(); $to=$r->input('to') ?: now()->endOfMonth()->toDateString();
@@ -87,11 +108,12 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
     });
     Route::get('/records/{table}',function(Request $r,string $table,Reports $reports){
         $layout=Records::layouts()[$table]; $key=match($table){'journal'=>'id','orders'=>'order_id','ads'=>'month'};
-        $chartMonth=null; $chartRange='all';
+        $chartMonth=null; $chartRange='all'; $cumScope='month';
         if($table==='orders'){
-            $r->validate(['chart_month'=>'nullable|date_format:Y-m','chart_range'=>'nullable|in:all,6m,3m,month']);
+            $r->validate(['chart_month'=>'nullable|date_format:Y-m','chart_range'=>'nullable|in:all,6m,3m,month','cum_scope'=>'nullable|in:month,all']);
             $chartMonth=$r->input('chart_month') ?: now('Asia/Jakarta')->format('Y-m');
             $chartRange=$r->input('chart_range') ?: 'all';
+            $cumScope=$r->input('cum_scope') ?: 'month';
         }
         $q=DB::table($table);
         if($term=$r->input('q')) $q->where(function($q)use($layout,$term){
@@ -104,6 +126,7 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
             'orderChoices'=>$table==='journal' ? DB::table('orders')->select('order_id','domain','package','customer')->orderBy('domain')->get() : [],
             'accounts'=>DB::table('accounts')->orderBy('code')->get(),
             'customerCharts'=>$table==='orders' ? $reports->customerDaily($chartMonth) : null,
+            'customerCumulative'=>$table==='orders' ? $reports->customerCumulative($chartMonth,$cumScope) : null,
             'customerPattern'=>$table==='orders' ? $reports->customerWeeklyPattern($chartRange,$chartMonth) : null]);
     })->whereIn('table',['journal','orders','ads']);
     Route::post('/records/{table}',function(Request $r,string $table){
