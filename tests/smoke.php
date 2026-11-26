@@ -113,3 +113,28 @@ verify(isset($dailyNov['trends']['chat']['direction'],$dailyNov['trends']['paid'
 $rendered=view('customer-charts',['customerCharts'=>$dailyNov,'customerCumulative'=>$reports->customerCumulative(),'customerPattern'=>$reports->customerWeeklyPattern('all','2026-11')])->render();
 verify(str_contains($rendered,'Berdasarkan chat pertama kali') && str_contains($rendered,'Berdasarkan pembayaran pertama kali') && str_contains($rendered,'trend-svg') && str_contains($rendered,'Pola mingguan dalam bulan') && str_contains($rendered,'Grafik pelanggan akumulasi semua bulan'),'Customer charts view renders');
 echo "Monthly sales, customer daily charts and stop subscription checks passed.\n";
+
+$delPay1=(string)Illuminate\Support\Str::uuid();
+$delPay2=(string)Illuminate\Support\Str::uuid();
+$delCost=(string)Illuminate\Support\Str::uuid();
+$delAd=(string)Illuminate\Support\Str::uuid();
+$delOrder=['purpose'=>'new','submission'=>$delPay1,'order'=>['customer'=>'C5','domain'=>'delete.test',
+    'source'=>'Google Ads','kind'=>'Baru','chat'=>'2026-12-01','package'=>'Web','duration'=>'3','start'=>'2026-12-01','value'=>500]];
+postEntry($delOrder,'2026-12-02',150);
+$delOrderId=DB::table('orders')->where('domain','delete.test')->value('order_id');
+postEntry(['purpose'=>'payment','linked_order'=>$delOrderId,'submission'=>$delPay2],'2026-12-05',350);
+postEntry(['purpose'=>'cost','linked_order'=>$delOrderId,'submission'=>$delCost],'2026-12-06',75);
+postEntry(['purpose'=>'ad_paid','submission'=>$delAd],'2026-12-10',40);
+$bankBefore=DB::table('ads')->where('month','2026-12-01')->value('bank');
+$spendBefore=DB::table('ads')->where('month','2026-12-01')->value('spend');
+App\JournalEntry::delete(DB::table('journal')->where('submission',$delPay1)->value('id'));
+$afterFirst=DB::table('orders')->where('order_id',$delOrderId)->first();
+verify($afterFirst->cash==350 && $afterFirst->paid==='2026-12-05','Delete first payment recalculates cash and paid date');
+App\JournalEntry::delete(DB::table('journal')->where('submission',$delPay2)->value('id'));
+$afterAllPay=DB::table('orders')->where('order_id',$delOrderId)->first();
+verify($afterAllPay->cash==0 && $afterAllPay->paid===null,'Delete last payment clears cash and paid date');
+App\JournalEntry::delete(DB::table('journal')->where('submission',$delCost)->value('id'));
+verify(DB::table('orders')->where('order_id',$delOrderId)->value('cost')==0,'Delete cost journal entry reverses order cost');
+App\JournalEntry::delete(DB::table('journal')->where('submission',$delAd)->value('id'));
+verify(DB::table('ads')->where('month','2026-12-01')->value('bank')==$bankBefore-40 && DB::table('ads')->where('month','2026-12-01')->value('spend')==$spendBefore-40,'Delete ad journal entry reverses monthly ads');
+echo "Journal delete checks passed.\n";

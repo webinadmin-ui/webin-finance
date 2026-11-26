@@ -92,12 +92,38 @@ class JournalEntry
         return $id;
     }
 
+    public static function delete(int $id): void {
+        DB::transaction(function() use($id){
+            $old=DB::table('journal')->where('id',$id)->lockForUpdate()->first();
+            abort_unless($old,404);
+            DB::table('journal')->where('id',$old->id)->delete();
+            if($old->order_id!==null){
+                $order=DB::table('orders')->where('order_id',$old->order_id)->lockForUpdate()->first();
+                if($order){
+                    if($old->purpose==='cost'){
+                        $changes=['cost'=>max(0,($order->cost??0)-$old->amount)];
+                    }else{
+                        $first=DB::table('journal')->where('order_id',$old->order_id)->where('purpose','payment')->min('date');
+                        $paid=$first===null ? $order->prior_paid : ($order->prior_paid ? min($order->prior_paid,$first) : $first);
+                        $changes=['cash'=>max(0,($order->cash??0)-$old->amount),'paid'=>$paid];
+                        if($first===null) $changes['prior_paid']=null;
+                    }
+                    DB::table('orders')->where('order_id',$old->order_id)->update($changes);
+                }
+            }
+            if(isset(self::ADS[$old->purpose])) self::adjustAds($old->purpose,$old->date,-$old->amount);
+        },3);
+    }
+
     private static function adjustAds(string $purpose,string $date,float $amount): void {
         $month=substr($date,0,7).'-01';
         DB::table('ads')->insertOrIgnore(['month'=>$month]);
         $q=DB::table('ads')->where('month',$month);
         $row=$q->lockForUpdate()->first(); $changes=[];
-        foreach(self::ADS[$purpose] as $field) $changes[$field]=($row->$field??0)+$amount;
+        foreach(self::ADS[$purpose] as $field){
+            $next=($row->$field??0)+$amount;
+            $changes[$field]=$amount<0 ? max(0,$next) : $next;
+        }
         $q->update($changes);
     }
 }
