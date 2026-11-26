@@ -110,6 +110,6 @@ verify($dailyNov['days'][14]['chat_count']===1 && $dailyNov['days'][14]['paid_co
 verify($dailyNov['days'][24]['paid_count']===2 && $dailyNov['days'][24]['paid_value']==500,'Nov 25 paid counts');
 verify($dailyNov['totals']['chat_count']===4 && $dailyNov['totals']['paid_count']===3,'Monthly customer chart totals');
 verify(isset($dailyNov['trends']['chat']['direction'],$dailyNov['trends']['paid']['direction']) && $dailyNov['days'][0]['chat_ma7']!==null,'Customer daily trends computed');
-$rendered=view('customer-charts',['customerCharts'=>$dailyNov,'customerCumulative'=>$reports->customerCumulative('2026-11','month'),'customerPattern'=>$reports->customerWeeklyPattern('all','2026-11')])->render();
-verify(str_contains($rendered,'Berdasarkan chat pertama kali') && str_contains($rendered,'Berdasarkan pembayaran pertama kali') && str_contains($rendered,'trend-svg') && str_contains($rendered,'Pola mingguan dalam bulan') && str_contains($rendered,'Grafik pelanggan kumulatif'),'Customer charts view renders');
+$rendered=view('customer-charts',['customerCharts'=>$dailyNov,'customerCumulative'=>$reports->customerCumulative(),'customerPattern'=>$reports->customerWeeklyPattern('all','2026-11')])->render();
+verify(str_contains($rendered,'Berdasarkan chat pertama kali') && str_contains($rendered,'Berdasarkan pembayaran pertama kali') && str_contains($rendered,'trend-svg') && str_contains($rendered,'Pola mingguan dalam bulan') && str_contains($rendered,'Grafik pelanggan akumulasi semua bulan'),'Customer charts view renders');
 echo "Monthly sales, customer daily charts and stop subscription checks passed.\n";

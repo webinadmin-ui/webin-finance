@@ -108,12 +108,11 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
     });
     Route::get('/records/{table}',function(Request $r,string $table,Reports $reports){
         $layout=Records::layouts()[$table]; $key=match($table){'journal'=>'id','orders'=>'order_id','ads'=>'month'};
-        $chartMonth=null; $chartRange='all'; $cumScope='month';
+        $chartMonth=null; $chartRange='all';
         if($table==='orders'){
-            $r->validate(['chart_month'=>'nullable|date_format:Y-m','chart_range'=>'nullable|in:all,6m,3m,month','cum_scope'=>'nullable|in:month,all']);
+            $r->validate(['chart_month'=>'nullable|date_format:Y-m','chart_range'=>'nullable|in:all,6m,3m,month']);
             $chartMonth=$r->input('chart_month') ?: now('Asia/Jakarta')->format('Y-m');
             $chartRange=$r->input('chart_range') ?: 'all';
-            $cumScope=$r->input('cum_scope') ?: 'month';
         }
         $q=DB::table($table);
         if($term=$r->input('q')) $q->where(function($q)use($layout,$term){
@@ -126,7 +125,7 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
             'orderChoices'=>$table==='journal' ? DB::table('orders')->select('order_id','domain','package','customer')->orderBy('domain')->get() : [],
             'accounts'=>DB::table('accounts')->orderBy('code')->get(),
             'customerCharts'=>$table==='orders' ? $reports->customerDaily($chartMonth) : null,
-            'customerCumulative'=>$table==='orders' ? $reports->customerCumulative($chartMonth,$cumScope) : null,
+            'customerCumulative'=>$table==='orders' ? $reports->customerCumulative() : null,
             'customerPattern'=>$table==='orders' ? $reports->customerWeeklyPattern($chartRange,$chartMonth) : null]);
     })->whereIn('table',['journal','orders','ads']);
     Route::post('/records/{table}',function(Request $r,string $table){

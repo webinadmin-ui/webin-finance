@@ -24,6 +24,6 @@
 @if($table==='journal') @include('journal-details') @endif
 <button>Simpan</button></form></details>
 @if($table==='orders') @include('customer-charts') @endif
-<form class="bar">@foreach(['chart_month','chart_range','cum_scope'] as $param)@if($table==='orders' && request()->filled($param))<input type="hidden" name="{{ $param }}" value="{{ request($param) }}">@endif @endforeach<label>Cari data<input name="q" value="{{ request('q') }}" placeholder="Nama, akun, atau referensi"></label><button>Cari</button></form>
+<form class="bar">@foreach(['chart_month','chart_range'] as $param)@if($table==='orders' && request()->filled($param))<input type="hidden" name="{{ $param }}" value="{{ request($param) }}">@endif @endforeach<label>Cari data<input name="q" value="{{ request('q') }}" placeholder="Nama, akun, atau referensi"></label><button>Cari</button></form>
 <div class="panel scroll"><table><tr><th></th>@foreach($columns as $i=>$f)<th>{{ $table==='journal' && $f==='party' ? 'Vendor' : $layout['headers'][$i] }}</th>@endforeach</tr>@forelse($rows as $row)<tr><td><a href="?{{ http_build_query(['edit'=>$row->$key]) }}">Edit</a></td>@foreach($columns as $f)<td>{{ $row->$f ?? '—' }}</td>@endforeach</tr>@empty<tr><td colspan="8">Belum ada data yang cocok.</td></tr>@endforelse</table>@include('pages')</div>
 @endsection
