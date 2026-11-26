@@ -166,6 +166,11 @@ Route::middleware(\App\AdminAccess::class)->group(function(){
         }
         return redirect('/records/'.$table)->with('message','Data tersimpan.');
     })->whereIn('table',['journal','orders','ads']);
+    Route::post('/records/journal/delete',function(Request $r){
+        $v=$r->validate(['id'=>'required|integer']);
+        JournalEntry::delete((int)$v['id']);
+        return redirect('/records/journal'.($r->filled('q')?'?'.http_build_query(['q'=>$r->input('q')]):''))->with('message','Transaksi dan data terkait dihapus.');
+    });
 });
 Route::get('/ledger/{code}',function(Request $r,string $code,Reports $reports){
     $period=$r->validate(['from'=>'required|date_format:Y-m-d','to'=>'required|date_format:Y-m-d|after_or_equal:from']);
