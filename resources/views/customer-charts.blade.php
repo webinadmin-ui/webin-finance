@@ -18,7 +18,7 @@ $patternCards=[
 <span><i class="swatch line-ma"></i>Kurva pola</span>
 </div>
 <form class="inline" method="get" action="/records/orders">
-@foreach(['q','chart_month','cum_scope'] as $param)@if(request()->filled($param))<input type="hidden" name="{{ $param }}" value="{{ request($param) }}">@endif @endforeach
+@foreach(['q','chart_month'] as $param)@if(request()->filled($param))<input type="hidden" name="{{ $param }}" value="{{ request($param) }}">@endif @endforeach
 <select name="chart_range" aria-label="Rentang analisis mingguan" onchange="this.form.submit()">
 @foreach($rangeLabels as $rk=>$rl)<option value="{{ $rk }}" @selected($customerPattern['range']===$rk)>{{ $rl }}</option>@endforeach
 </select>
@@ -76,27 +76,16 @@ $cmpMax=max($endsRate,$midRate,0.001);
 
 @php($rp=fn($v)=>'Rp '.number_format($v,0,',','.'))
 <?php
-$buildDailyLines=function(array $days,string $field,?array $trend,int $scale,int $dayCount,int $activeDays,bool $cumulative=false): array {
+$buildDailyLines=function(array $days,string $field,array $trend,int $scale,int $dayCount,int $activeDays): array {
     $points=[];
-    $total=0.0;
     for($i=0;$i<$activeDays;$i++){
-        $val=$days[$i][$field]??null;
-        if($val===null) continue;
-        $total=(float)$val;
+        $val=(float)($days[$i][$field]??0);
         $x=round((($i+0.5)/$dayCount)*1000,2);
-        $y=round(max(0,min(100,100-(($total/$scale)*100))),2);
+        $y=round(max(0,min(100,100-(($val/$scale)*100))),2);
         $points[]="$x,$y";
     }
     $reg=null;
-    if($cumulative && $activeDays>=2 && $total>0){
-        $startVal=$total/$activeDays;
-        $reg=[
-            'x1'=>round((0.5/$dayCount)*1000,2),
-            'y1'=>round(max(0,min(100,100-(($startVal/$scale)*100))),2),
-            'x2'=>round((($activeDays-0.5)/$dayCount)*1000,2),
-            'y2'=>round(max(0,min(100,100-(($total/$scale)*100))),2),
-        ];
-    }elseif(!$cumulative && $trend && $activeDays>=2){
+    if($activeDays>=2){
         $x0=0; $x1=$activeDays-1;
         $y0=$trend['intercept']; $y1=$trend['intercept']+$trend['slope']*$x1;
         if($y0<0 && $trend['slope']>0){ $x0=-$trend['intercept']/$trend['slope']; $y0=0; }
@@ -115,96 +104,73 @@ $buildDailyLines=function(array $days,string $field,?array $trend,int $scale,int
     return ['daily'=>implode(' ',$points),'reg'=>$reg];
 };
 
-$panels=[];
-if(!empty($customerCharts)){
-    $days=$customerCharts['days'];
+$makePanel=function(string $mode,string $heading,string $aria,string $summary,string $detailsLabel,array $source,string $emptyScopeLabel,?string $monthPicker) use($rp,$buildDailyLines): array {
+    $days=$source['days'];
     $dayCount=count($days);
-    $activeDays=$customerCharts['active_days'] ?? $dayCount;
+    $activeDays=$source['active_days'] ?? $dayCount;
     $chatMax=max(0,...array_column($days,'chat_count'));
     $paidMax=max(0,...array_column($days,'paid_count'));
     $chatScale=$chatMax>0?(int)(ceil($chatMax/4)*4):4;
     $paidScale=$paidMax>0?(int)(ceil($paidMax/4)*4):4;
-    $panels[]=[
-        'mode'=>'daily',
-        'heading'=>'Grafik pelanggan harian ('.$customerCharts['month_label'].')',
-        'aria'=>'Grafik pelanggan harian',
-        'summary'=>'Chat pertama: '.$customerCharts['totals']['chat_count'].' order · Pembayaran pertama: '.$customerCharts['totals']['paid_count'].' order ('.$rp($customerCharts['totals']['paid_value']).')',
-        'line_label'=>'Garis harian',
-        'ref_label'=>'Garis tren',
-        'details_label'=>'Lihat rincian harian',
+    return [
+        'mode'=>$mode,
+        'heading'=>$heading,
+        'aria'=>$aria,
+        'summary'=>$summary,
+        'details_label'=>$detailsLabel,
         'days'=>$days,
         'day_count'=>$dayCount,
         'active_days'=>$activeDays,
-        'month'=>$customerCharts['month'],
-        'scope'=>null,
+        'month'=>$monthPicker,
         'charts'=>[
             [
                 'title'=>'Berdasarkan chat pertama kali',
-                'subtitle'=>'Total '.$customerCharts['totals']['chat_count'].' order ('.$customerCharts['totals']['chat_new_count'].' baru)',
-                'empty'=>'Belum ada data chat pertama kali pada '.$customerCharts['month_label'].'.',
-                'field'=>'chat_count','delta_field'=>'chat_count','ma_field'=>'chat_ma7',
+                'subtitle'=>'Total '.$source['totals']['chat_count'].' order ('.$source['totals']['chat_new_count'].' baru)',
+                'empty'=>'Belum ada data chat pertama kali pada '.$emptyScopeLabel.'.',
+                'field'=>'chat_count','ma_field'=>'chat_ma7',
                 'raw_max'=>$chatMax,'scale'=>$chatScale,'color'=>'chat',
-                'trend'=>$customerCharts['trends']['chat'],
-                'lines'=>$chatMax>0?$buildDailyLines($days,'chat_count',$customerCharts['trends']['chat'],$chatScale,$dayCount,$activeDays,false):['daily'=>'','reg'=>null],
-                'aria'=>'Grafik batang dan tren chat pertama kali harian bulan '.$customerCharts['month_label'],
+                'trend'=>$source['trends']['chat'],
+                'lines'=>$chatMax>0?$buildDailyLines($days,'chat_count',$source['trends']['chat'],$chatScale,$dayCount,$activeDays):['daily'=>'','reg'=>null],
+                'aria'=>'Grafik batang dan tren chat pertama kali '.$emptyScopeLabel,
             ],
             [
                 'title'=>'Berdasarkan pembayaran pertama kali',
-                'subtitle'=>'Total '.$customerCharts['totals']['paid_count'].' order bayar · '.$rp($customerCharts['totals']['paid_value']),
-                'empty'=>'Belum ada data pembayaran pertama kali pada '.$customerCharts['month_label'].'.',
-                'field'=>'paid_count','delta_field'=>'paid_count','ma_field'=>'paid_ma7',
+                'subtitle'=>'Total '.$source['totals']['paid_count'].' order bayar · '.$rp($source['totals']['paid_value']),
+                'empty'=>'Belum ada data pembayaran pertama kali pada '.$emptyScopeLabel.'.',
+                'field'=>'paid_count','ma_field'=>'paid_ma7',
                 'raw_max'=>$paidMax,'scale'=>$paidScale,'color'=>'paid',
-                'trend'=>$customerCharts['trends']['paid'],
-                'lines'=>$paidMax>0?$buildDailyLines($days,'paid_count',$customerCharts['trends']['paid'],$paidScale,$dayCount,$activeDays,false):['daily'=>'','reg'=>null],
-                'aria'=>'Grafik batang dan tren pembayaran pertama kali harian bulan '.$customerCharts['month_label'],
+                'trend'=>$source['trends']['paid'],
+                'lines'=>$paidMax>0?$buildDailyLines($days,'paid_count',$source['trends']['paid'],$paidScale,$dayCount,$activeDays):['daily'=>'','reg'=>null],
+                'aria'=>'Grafik batang dan tren pembayaran pertama kali '.$emptyScopeLabel,
             ],
         ],
     ];
+};
+
+$panels=[];
+if(!empty($customerCharts)){
+    $panels[]=$makePanel(
+        'daily',
+        'Grafik pelanggan harian ('.$customerCharts['month_label'].')',
+        'Grafik pelanggan harian',
+        'Chat pertama: '.$customerCharts['totals']['chat_count'].' order · Pembayaran pertama: '.$customerCharts['totals']['paid_count'].' order ('.$rp($customerCharts['totals']['paid_value']).')',
+        'Lihat rincian harian',
+        $customerCharts,
+        $customerCharts['month_label'],
+        $customerCharts['month']
+    );
 }
 if(!empty($customerCumulative)){
-    $cDays=$customerCumulative['days'];
-    $cDayCount=count($cDays);
-    $cActive=$customerCumulative['active_days'];
-    $cChatMax=$customerCumulative['totals']['chat_count'];
-    $cPaidMax=$customerCumulative['totals']['paid_count'];
-    $cChatScale=$cChatMax>0?(int)(ceil($cChatMax/4)*4):4;
-    $cPaidScale=$cPaidMax>0?(int)(ceil($cPaidMax/4)*4):4;
-    $panels[]=[
-        'mode'=>'cumulative',
-        'heading'=>'Grafik pelanggan kumulatif ('.$customerCumulative['label'].')',
-        'aria'=>'Grafik pelanggan kumulatif',
-        'summary'=>'Total kumulatif · Chat pertama: '.$cChatMax.' order · Pembayaran pertama: '.$cPaidMax.' order ('.$rp($customerCumulative['totals']['paid_value']).')',
-        'line_label'=>'Garis kumulatif',
-        'ref_label'=>'Laju merata',
-        'details_label'=>'Lihat rincian kumulatif harian',
-        'days'=>$cDays,
-        'day_count'=>$cDayCount,
-        'active_days'=>$cActive,
-        'month'=>$customerCumulative['month'],
-        'scope'=>$customerCumulative['scope'],
-        'charts'=>[
-            [
-                'title'=>'Berdasarkan chat pertama kali',
-                'subtitle'=>'Kumulatif '.$cChatMax.' order ('.$customerCumulative['totals']['chat_new_count'].' baru)',
-                'empty'=>'Belum ada data chat pertama kali pada '.$customerCumulative['label'].'.',
-                'field'=>'cum_chat','delta_field'=>'chat_count','ma_field'=>null,
-                'raw_max'=>$cChatMax,'scale'=>$cChatScale,'color'=>'chat',
-                'trend'=>null,
-                'lines'=>$cChatMax>0?$buildDailyLines($cDays,'cum_chat',null,$cChatScale,$cDayCount,$cActive,true):['daily'=>'','reg'=>null],
-                'aria'=>'Grafik batang kumulatif chat pertama kali '.$customerCumulative['label'],
-            ],
-            [
-                'title'=>'Berdasarkan pembayaran pertama kali',
-                'subtitle'=>'Kumulatif '.$cPaidMax.' order bayar · '.$rp($customerCumulative['totals']['paid_value']),
-                'empty'=>'Belum ada data pembayaran pertama kali pada '.$customerCumulative['label'].'.',
-                'field'=>'cum_paid','delta_field'=>'paid_count','ma_field'=>null,
-                'raw_max'=>$cPaidMax,'scale'=>$cPaidScale,'color'=>'paid',
-                'trend'=>null,
-                'lines'=>$cPaidMax>0?$buildDailyLines($cDays,'cum_paid',null,$cPaidScale,$cDayCount,$cActive,true):['daily'=>'','reg'=>null],
-                'aria'=>'Grafik batang kumulatif pembayaran pertama kali '.$customerCumulative['label'],
-            ],
-        ],
-    ];
+    $panels[]=$makePanel(
+        'all_months',
+        'Grafik pelanggan akumulasi semua bulan (Tgl 1–31)',
+        'Grafik pelanggan akumulasi semua bulan per tanggal',
+        'Total gabungan '.$customerCumulative['months'].' bulan · Chat pertama: '.$customerCumulative['totals']['chat_count'].' order · Pembayaran pertama: '.$customerCumulative['totals']['paid_count'].' order ('.$rp($customerCumulative['totals']['paid_value']).')',
+        'Lihat rincian akumulasi per tanggal',
+        $customerCumulative,
+        'semua bulan',
+        null
+    );
 }
 ?>
 @foreach($panels as $panel)
@@ -216,28 +182,21 @@ if(!empty($customerCumulative)){
 <div class="legend">
 <span><i class="swatch chat"></i>Chat pertama kali</span>
 <span><i class="swatch paid"></i>Pembayaran pertama kali</span>
-<span><i class="swatch line-ma"></i>{{ $panel['line_label'] }}</span>
-<span><i class="swatch line-trend"></i>{{ $panel['ref_label'] }}</span>
+<span><i class="swatch line-ma"></i>Garis tanggal</span>
+<span><i class="swatch line-trend"></i>Garis tren</span>
 </div>
+@if($panel['month'])
 <form class="inline" method="get" action="/records/orders">
 @foreach(['q','chart_range'] as $param)@if(request()->filled($param))<input type="hidden" name="{{ $param }}" value="{{ request($param) }}">@endif @endforeach
-@if($panel['mode']==='cumulative')
-<input type="hidden" name="chart_month" value="{{ $panel['month'] }}">
-<select name="cum_scope" aria-label="Cakupan grafik kumulatif" onchange="this.form.submit()">
-<option value="month" @selected($panel['scope']==='month')>Bulan terpilih</option>
-<option value="all" @selected($panel['scope']==='all')>Semua bulan (Tgl 1–31)</option>
-</select>
-@else
-@if(request()->filled('cum_scope'))<input type="hidden" name="cum_scope" value="{{ request('cum_scope') }}">@endif
 <input type="month" name="chart_month" value="{{ $panel['month'] }}" aria-label="Bulan grafik pelanggan" onchange="this.form.submit()">
-@endif
 </form>
+@endif
 </div></div>
 <div class="chart-stack">
 @foreach($panel['charts'] as $chart)
 @php($tr=$chart['trend'])
 <div class="chart-block">
-<h3><span>{{ $chart['title'] }}</span><small>{{ $chart['subtitle'] }}@if($tr && $chart['raw_max']>0) · Rata-rata {{ number_format($tr['avg'],1,',','.') }}/hari · Puncak {{ $tr['peak'] }} (tgl {{ $tr['peak_day'] }}) · Tren: <b class="trend-badge {{ strtolower($tr['direction']) }}">{{ $tr['direction'] }}</b>@endif</small></h3>
+<h3><span>{{ $chart['title'] }}</span><small>{{ $chart['subtitle'] }}@if($chart['raw_max']>0) · Rata-rata {{ number_format($tr['avg'],1,',','.') }}/tgl · Puncak {{ $tr['peak'] }} (tgl {{ $tr['peak_day'] }}) · Tren: <b class="trend-badge {{ strtolower($tr['direction']) }}">{{ $tr['direction'] }}</b>@endif</small></h3>
 @if($chart['raw_max']<=0)<p class="chart-sub">{{ $chart['empty'] }}</p>@endif
 <div class="bar-chart">
 <div class="y-axis compact" aria-hidden="true">@foreach([1,0.75,0.5,0.25,0] as $t)<span>{{ $chart['raw_max']>0?(int)round($chart['scale']*$t):0 }}</span>@endforeach</div>
@@ -249,21 +208,11 @@ if(!empty($customerCumulative)){
 </svg>
 @endif
 @foreach($panel['days'] as $idx=>$d)
-@php($val=$d[$chart['field']]??null)
-@php($delta=$d[$chart['delta_field']]??0)
-@php($ma=$chart['ma_field']?($d[$chart['ma_field']]??null):null)
-@php($pct=$val!==null && $val>0?round(($val/$chart['scale'])*100,2):0)
+@php($val=$d[$chart['field']])
+@php($ma=$d[$chart['ma_field']]??null)
+@php($pct=$val>0?round(($val/$chart['scale'])*100,2):0)
 <div class="month-col" tabindex="0">
 <div class="chart-tip"><strong>@if($d['weekday']){{ $d['weekday'] }}, @endif{{ $d['date'] }}</strong><br>
-@if($panel['mode']==='cumulative')
-@if($val===null)
-Belum memasuki tanggal ini
-@elseif($chart['field']==='cum_chat')
-Kumulatif chat: {{ $val }} order @if($delta>0)<br>Tambahan hari ini: +{{ $delta }}@endif
-@else
-Kumulatif bayar: {{ $val }} order @if($delta>0)<br>Tambahan hari ini: +{{ $delta }}@endif @if(($d['cum_paid_value']??0)>0)<br>Nilai kumulatif: {{ $rp($d['cum_paid_value']) }}@endif
-@endif
-@else
 @if($chart['field']==='chat_count')
 Chat pertama: {{ $d['chat_count'] }} order
 @if($d['chat_count']>0)<br>Order baru: {{ $d['chat_new_count'] }}@endif
@@ -272,10 +221,9 @@ Pembayaran pertama: {{ $d['paid_count'] }} order
 @if($d['paid_count']>0)<br>Nilai order: {{ $rp($d['paid_value']) }}@endif
 @endif
 @if($ma!==null && $chart['raw_max']>0)<br>Rata-rata 7 hari: {{ number_format($ma,1,',','.') }}@endif
-@endif
 </div>
-<div class="bars"><div class="bar-col {{ $chart['color'] }}" style="height:{{ $pct }}%" title="@if($d['weekday']){{ $d['weekday'] }}, @endif{{ $d['date'] }}: {{ $val ?? 0 }} order"></div></div>
-@if($idx<$panel['active_days'] && $val!==null && $chart['raw_max']>0)<span class="trend-dot" style="bottom:{{ $pct }}%" aria-hidden="true"></span>@endif
+<div class="bars"><div class="bar-col {{ $chart['color'] }}" style="height:{{ $pct }}%" title="@if($d['weekday']){{ $d['weekday'] }}, @endif{{ $d['date'] }}: {{ $val }} order"></div></div>
+@if($idx<$panel['active_days'] && $chart['raw_max']>0)<span class="trend-dot" style="bottom:{{ $pct }}%" aria-hidden="true"></span>@endif
 <span class="m-label">{{ $d['day'] }}@if($d['weekday'])<small>{{ $d['weekday'] }}</small>@endif</span>
 </div>
 @endforeach
@@ -283,14 +231,8 @@ Pembayaran pertama: {{ $d['paid_count'] }} order
 </div>
 @endforeach
 </div>
-<details class="chart-details"><summary>{{ $panel['details_label'] }}</summary><div class="scroll"><table>
-@if($panel['mode']==='cumulative')
-<tr><th>Tanggal</th><th>Chat (+hari)</th><th>Kumulatif chat</th><th>Bayar (+hari)</th><th>Kumulatif bayar</th><th>Nilai kumulatif</th></tr>
-@foreach($panel['days'] as $d)<tr><td>@if($d['weekday']){{ $d['weekday'] }}, @endif{{ $d['date'] }}</td><td>{{ $d['chat_count'] }}</td><td>{{ $d['cum_chat'] ?? '—' }}</td><td>{{ $d['paid_count'] }}</td><td>{{ $d['cum_paid'] ?? '—' }}</td><td>{{ $d['cum_paid_value']!==null?$rp($d['cum_paid_value']):'—' }}</td></tr>@endforeach
-@else
-<tr><th>Tanggal</th><th>Chat pertama kali</th><th>Order baru</th><th>Pembayaran pertama kali</th><th>Nilai order bayar</th></tr>
-@foreach($panel['days'] as $d)<tr><td>{{ $d['weekday'] }}, {{ $d['date'] }}</td><td>{{ $d['chat_count'] }}</td><td>{{ $d['chat_new_count'] }}</td><td>{{ $d['paid_count'] }}</td><td>{{ $rp($d['paid_value']) }}</td></tr>@endforeach
-@endif
+<details class="chart-details"><summary>{{ $panel['details_label'] }}</summary><div class="scroll"><table><tr><th>Tanggal</th><th>Chat pertama kali</th><th>Order baru</th><th>Pembayaran pertama kali</th><th>Nilai order bayar</th></tr>
+@foreach($panel['days'] as $d)<tr><td>@if($d['weekday']){{ $d['weekday'] }}, @endif{{ $d['date'] }}</td><td>{{ $d['chat_count'] }}</td><td>{{ $d['chat_new_count'] }}</td><td>{{ $d['paid_count'] }}</td><td>{{ $rp($d['paid_value']) }}</td></tr>@endforeach
 </table></div></details>
 </section>
 @endforeach

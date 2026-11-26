@@ -145,60 +145,44 @@ class Reports
             'totals'=>$totals,'trends'=>['chat'=>$chatTrend,'paid'=>$paidTrend]];
     }
 
-    public function customerCumulative(string $month,string $scope='month'): array {
-        if($scope==='all'){
-            $days=[];
-            for($d=1;$d<=31;$d++) $days[$d]=['day'=>$d,'weekday'=>null,'date'=>'Tgl '.$d,'chat_count'=>0,'chat_new_count'=>0,'paid_count'=>0,'paid_value'=>0.0];
-            foreach(DB::table('orders')->whereNotNull('chat')->select('chat','kind')->cursor() as $o){
-                $d=(int)substr((string)$o->chat,8,2);
-                if(!isset($days[$d])) continue;
-                $days[$d]['chat_count']++;
-                if($o->kind==='Baru') $days[$d]['chat_new_count']++;
-            }
-            foreach(DB::table('orders')->where('status','Bayar')->whereNotNull('paid')->select('paid','value')->cursor() as $o){
-                $d=(int)substr((string)$o->paid,8,2);
-                if(!isset($days[$d])) continue;
-                $days[$d]['paid_count']++;
-                $days[$d]['paid_value']+=(float)($o->value??0);
-            }
-            $daysList=array_values($days);
-            $activeDays=31;
-            $label='Semua bulan (Tgl 1–31)';
-        }else{
-            $scope='month';
-            $daily=$this->customerDaily($month);
-            $daysList=$daily['days'];
-            $activeDays=$daily['active_days'];
-            $label=$daily['month_label'];
+    public function customerCumulative(): array {
+        $days=[];
+        for($d=1;$d<=31;$d++){
+            $days[$d]=['day'=>$d,'weekday'=>null,'date'=>'Tgl '.$d,
+                'chat_count'=>0,'chat_new_count'=>0,'chat_ma7'=>null,
+                'paid_count'=>0,'paid_value'=>0.0,'paid_ma7'=>null];
         }
-
-        $cumChat=0; $cumChatNew=0; $cumPaid=0; $cumPaidVal=0.0;
-        foreach($daysList as $i=>&$row){
-            if($i<$activeDays){
-                $cumChat+=$row['chat_count'];
-                $cumChatNew+=$row['chat_new_count'];
-                $cumPaid+=$row['paid_count'];
-                $cumPaidVal+=$row['paid_value'];
-                $row['cum_chat']=$cumChat;
-                $row['cum_chat_new']=$cumChatNew;
-                $row['cum_paid']=$cumPaid;
-                $row['cum_paid_value']=$cumPaidVal;
-            }else{
-                $row['cum_chat']=null;
-                $row['cum_chat_new']=null;
-                $row['cum_paid']=null;
-                $row['cum_paid_value']=null;
-            }
+        $months=[];
+        foreach(DB::table('orders')->whereNotNull('chat')->select('chat','kind')->cursor() as $o){
+            $d=(int)substr((string)$o->chat,8,2);
+            if(!isset($days[$d])) continue;
+            $months[substr((string)$o->chat,0,7)]=true;
+            $days[$d]['chat_count']++;
+            if($o->kind==='Baru') $days[$d]['chat_new_count']++;
         }
-        unset($row);
-
+        foreach(DB::table('orders')->where('status','Bayar')->whereNotNull('paid')->select('paid','value')->cursor() as $o){
+            $d=(int)substr((string)$o->paid,8,2);
+            if(!isset($days[$d])) continue;
+            $months[substr((string)$o->paid,0,7)]=true;
+            $days[$d]['paid_count']++;
+            $days[$d]['paid_value']+=(float)($o->value??0);
+        }
+        $daysList=array_values($days);
+        $chatTrend=$this->dailyTrend($daysList,'chat_count','chat_ma7',31);
+        $paidTrend=$this->dailyTrend($daysList,'paid_count','paid_ma7',31);
+        $totals=[
+            'chat_count'=>array_sum(array_column($daysList,'chat_count')),
+            'chat_new_count'=>array_sum(array_column($daysList,'chat_new_count')),
+            'paid_count'=>array_sum(array_column($daysList,'paid_count')),
+            'paid_value'=>array_sum(array_column($daysList,'paid_value')),
+        ];
         return [
-            'scope'=>$scope,
-            'month'=>$month,
-            'label'=>$label,
-            'active_days'=>$activeDays,
+            'label'=>'Semua bulan · Tgl 1–31',
+            'months'=>count($months),
+            'active_days'=>31,
             'days'=>$daysList,
-            'totals'=>['chat_count'=>$cumChat,'chat_new_count'=>$cumChatNew,'paid_count'=>$cumPaid,'paid_value'=>$cumPaidVal],
+            'totals'=>$totals,
+            'trends'=>['chat'=>$chatTrend,'paid'=>$paidTrend],
         ];
     }
 
